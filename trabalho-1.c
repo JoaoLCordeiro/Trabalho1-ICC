@@ -23,7 +23,7 @@ int le_entrada(t_entrada* entrada){					//função que lê a entrada
 	}
 
 	entrada->epslon;
-	scanf("%lf\n", &(entrada->epslon));												//lê o número para a tolerância epslon
+	scanf("%le\n", &(entrada->epslon));												//lê o número para a tolerância epslon
 
 	entrada->iteracoes;
 	scanf("%d\n", &(entrada->iteracoes));											//lê o número máximo de iterações
@@ -35,7 +35,7 @@ void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
 	for (int i = 0; i < entrada->n_var ; i++)
 		printf ("%lf ", entrada->valores_ini[i]);
 	printf ("\n");
-	printf ("%lf\n", entrada->epslon);
+	printf ("%le\n", entrada->epslon);
 	printf ("%d\n", entrada->iteracoes);
 }
 
