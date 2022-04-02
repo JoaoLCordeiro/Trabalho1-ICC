@@ -20,6 +20,8 @@ struct t_i_double{			//um tipo double com índice, para o vetor delta
 	double 	n;
 } typedef t_i_double;
 
+/*---------------------COMECA AS FUNCOES GERAIS--------------------*/
+
 //função que lê a entrada
 int le_entrada(t_entrada* entrada){
 	if ((scanf("%d\n", &(entrada->n_var))) == EOF)									//lê o número de incógnitas
@@ -57,8 +59,6 @@ int le_entrada(t_entrada* entrada){
 	return (0);
 }
 
-/*----------------COMECA AS FUNCOES DO NEWTON PADRAO---------------*/
-
 //função que encontra o índice do maior número da coluna para baixo da linha = coluna
 int encontra_pivo (double** matriz, int coluna, int n){
 	int max 	= fabs (matriz[coluna][coluna]);
@@ -74,28 +74,7 @@ int encontra_pivo (double** matriz, int coluna, int n){
 	return (max_i);
 }
 
-//troca as linhas do sistema linear
-void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2, int n){
-	double 	aux;
-	double* auxp;
-
-	auxp		= m_A[i_1];				//troca as linhas da matriz
-	m_A[i_1]	= m_A[i_2];
-	m_A[i_2]	= auxp;
-
-	aux 		= v_B[i_1];				//troca os valores do vetor B
-	v_B[i_1] 	= v_B[i_2];
-	v_B[i_2]	= aux;
-
-	aux 		= v_X[i_1].n;			//troca os valores do vetor X
-	v_X[i_1].n 	= v_X[i_2].n;
-	v_X[i_2].n	= aux;
-
-	aux 		= v_X[i_1].i;			//troca os indices do vetor X
-	v_X[i_1].i 	= v_X[i_2].i;
-	v_X[i_2].i	= aux;
-}
-
+//retrossubstituicao em um vetor de double com índice
 void retrossubs_v_i_double (double** m_A, t_i_double* v_X, double* v_B, int n){
 	for (int i = n-1 ; i >=0 ; i--){					//i = linha calculando o valor de v_X
 		v_X[i].n = v_B[i];
@@ -106,33 +85,6 @@ void retrossubs_v_i_double (double** m_A, t_i_double* v_X, double* v_B, int n){
 		v_X[i].n /= m_A[i][i];
 	}
 	//agora, v_X possui o resultado do sistema linear
-}
-
-//funcao que resolve o sistema linear dado
-void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
-	//faz eliminação de gauss com pivoteamento parcial
-
-	for (int i = 0 ; i < n ; i++){						//i = linha encontrando o pivo
-		int iPivo	= encontra_pivo(m_A, i, n);
-
-		if (i != iPivo)
-			troca_linhas (m_A, v_B, v_X, i, iPivo, n);
-
-		for (int j = i+1 ; j < n ; j++){				//j = linha subtraindo a linha do pivo
-			double m 	= m_A[j][i]/m_A[i][i];
-			m_A[j][i]	= 0.0;
-
-			for (int k = i+1 ; k < n ; k++)				//k = coluna fazendo a subtracao por elemento
-				m_A[j][k]	-= m_A[i][k]*m;
-			
-			v_B[j] -= v_B[i]*m;
-		}
-	}
-
-	//faz retrosubstituicao
-	retrossubs_v_i_double (m_A, v_X, v_B, n);
-
-	//agora, o sistema está resolvido em v_X, com seus respectivos indices, mesmo após as trocas
 }
 
 //o delta pode ser desordenado na hora do pivoteamento, essa funcao o ordena de volta
@@ -163,7 +115,7 @@ void reordena_v_i_double (t_i_double* v_i_double, int n){
 	}
 }
 
-//calcula a norma de um vetor de valores
+//calcula a norma de um vetor de double
 double norma (double*  v_valores, int n){
 	double total = 0.0;
 	for (int i = 0 ; i < n ; i++)
@@ -173,18 +125,14 @@ double norma (double*  v_valores, int n){
 	return (total);
 }
 
-//soma o vetor x1 e o delta no vetor x2
-void soma_x1_delta_pro_x1 (t_i_double* v_delta, double* v_X_i1, int n){
-	for (int i = 0 ; i < n ; i++){
-		v_X_i1[i] += v_delta[i].n;
-	}
-}
-
-//imprime um vetor, não usada no final APAGAR ESSA FUNCAO AQUI
-void imprime_vetor (double* vetor, int n){
+//calcula a norma de um vetor de double com indice
+double norma_i (t_i_double*  v_valores, int n){
+	double total = 0.0;
 	for (int i = 0 ; i < n ; i++)
-		printf("%le	", vetor[i]);
-	printf("\n");
+		total += v_valores[i].n*v_valores[i].n;
+	
+	total = sqrt(total);
+	return (total);
 }
 
 //calcula as funcoes derivadas da funcao "funcao"
@@ -219,14 +167,6 @@ void aloca_v_double (double** v_double, int n){
 	*v_double	= (double *) calloc (n,sizeof(double));
 }
 
-//aloca um vetor e uma matriz de valores de funcoes de tamanho n
-void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_vars){
-	aloca_v_double (v_f_iteracao, n_vars);	
-	*m_f_iteracao	= (double **) calloc (n_vars,sizeof(double*));	
-	for (int i = 0 ; i < n_vars ; i++)
-		aloca_v_double (&((*m_f_iteracao)[i]), n_vars);
-}
-
 //aloca os vetores: delta, xi1 e xi2
 void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, int  n_vars){
 	*v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));
@@ -241,6 +181,74 @@ void inicia_X_delta (double* v_X_i1, t_i_double* v_delta, t_entrada* entrada){
 	}
 }
 
+/*---------------------ACABA AS FUNCOES GERAIS---------------------*/
+
+/*----------------COMECA AS FUNCOES DO NEWTON PADRAO---------------*/
+
+//troca as linhas do sistema linear
+void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2, int n){
+	double 	aux;
+	double* auxp;
+
+	auxp		= m_A[i_1];				//troca as linhas da matriz
+	m_A[i_1]	= m_A[i_2];
+	m_A[i_2]	= auxp;
+
+	aux 		= v_B[i_1];				//troca os valores do vetor B
+	v_B[i_1] 	= v_B[i_2];
+	v_B[i_2]	= aux;
+
+	aux 		= v_X[i_1].n;			//troca os valores do vetor X
+	v_X[i_1].n 	= v_X[i_2].n;
+	v_X[i_2].n	= aux;
+
+	aux 		= v_X[i_1].i;			//troca os indices do vetor X
+	v_X[i_1].i 	= v_X[i_2].i;
+	v_X[i_2].i	= aux;
+}
+
+//funcao que resolve o sistema linear dado
+void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
+	//faz eliminação de gauss com pivoteamento parcial
+
+	for (int i = 0 ; i < n ; i++){						//i = linha encontrando o pivo
+		int iPivo	= encontra_pivo(m_A, i, n);
+
+		if (i != iPivo)
+			troca_linhas (m_A, v_B, v_X, i, iPivo, n);
+
+		for (int j = i+1 ; j < n ; j++){				//j = linha subtraindo a linha do pivo
+			double m 	= m_A[j][i]/m_A[i][i];
+			m_A[j][i]	= 0.0;
+
+			for (int k = i+1 ; k < n ; k++)				//k = coluna fazendo a subtracao por elemento
+				m_A[j][k]	-= m_A[i][k]*m;
+			
+			v_B[j] -= v_B[i]*m;
+		}
+	}
+
+	//faz retrosubstituicao
+	retrossubs_v_i_double (m_A, v_X, v_B, n);
+
+	//agora, o sistema está resolvido em v_X, com seus respectivos indices, mesmo após as trocas
+}
+
+//soma o vetor x1 e o delta no vetor x2
+void soma_x_delta_pro_x (t_i_double* v_delta, double* v_X, int n){
+	for (int i = 0 ; i < n ; i++){
+		v_X[i] += v_delta[i].n;
+	}
+}
+
+//aloca um vetor e uma matriz de valores de funcoes de tamanho n
+void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_vars){
+	aloca_v_double (v_f_iteracao, n_vars);	
+	*m_f_iteracao	= (double **) calloc (n_vars,sizeof(double*));	
+	for (int i = 0 ; i < n_vars ; i++)
+		aloca_v_double (&((*m_f_iteracao)[i]), n_vars);
+}
+
 //calcula os valores das funcoes derivadas
 void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteracao, double** m_f_iteracao, int n_vars, char** v_vars, double* v_X){
 	for (int i = 0 ; i < n_vars ; i++){												//guarda os valores das funcoes derivadas
@@ -251,6 +259,7 @@ void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteraca
 	}
 }
 
+//dá free no vetor e matriz de funcoes derivadas
 void free_v_m_derivs (void**  v_deriv, void*** m_deriv, int n){
 	free (v_deriv);
 	for (int i = 0 ; i < n ; i++)
@@ -258,6 +267,7 @@ void free_v_m_derivs (void**  v_deriv, void*** m_deriv, int n){
 	free (m_deriv);
 }
 
+//dá free no vetor e matriz de valores de funcoes derivadas
 void free_v_m_funcao_it (double*  v_f_iteracao, double** m_f_iteracao, int n){
 	free (v_f_iteracao);
 	for (int i = 0 ; i < n ; i++)
@@ -265,13 +275,10 @@ void free_v_m_funcao_it (double*  v_f_iteracao, double** m_f_iteracao, int n){
 	free (m_f_iteracao);
 }
 
+//dá free nos vetores X e delta
 void free_v_delta_X (t_i_double* v_delta, double* v_X_i1){
 	free (v_delta);
 	free (v_X_i1);
-}
-
-void free_v_res_it (double* v_res_it){
-	free (v_res_it);
 }
 
 //faz o newton padrao
@@ -310,10 +317,14 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 
 		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
 		reordena_v_i_double 	(v_delta, n_vars);
-		soma_x1_delta_pro_x1	(v_delta, v_X, n_vars);				//agora, v_X possui os X da futura iteracao (i+1)
+		soma_x_delta_pro_x  	(v_delta, v_X, n_vars);				//agora, v_X possui os X da futura iteracao (i+1)
 
 		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
-		if (norma(v_X, n_vars) < entrada->epslon)
+		
+		if (isnan(v_res_it[cont_it]) || isinf(v_res_it[cont_it]))	//quando a funcao encontra um infinito ou um not a number, para de tentar
+			break;
+
+		if (norma_i(v_delta, n_vars) < entrada->epslon)
 			break;
 
 	}
@@ -356,15 +367,15 @@ void troca_linhas_LU (double** m_U, double** m_L, t_i_double* v_delta, int i_1, 
 	double* auxp;
 	int aux;
 
-	auxp 	 = m_U[i_1];
+	auxp 	 = m_U[i_1];				//troca as linhas da matriz U
 	m_U[i_1] = m_U[i_2];
 	m_U[i_2] = auxp;
 
-	auxp 	 = m_L[i_1];
+	auxp 	 = m_L[i_1];				//troca as linhas da matriz L
 	m_L[i_1] = m_L[i_2];
 	m_L[i_2] = auxp;
 
-	aux 	 		= v_delta[i_1].i;
+	aux 	 		= v_delta[i_1].i;	//guarda as trocas no delta
 	v_delta[i_1].i 	= v_delta[i_2].i;
 	v_delta[i_2].i 	= aux;
 }
@@ -378,6 +389,7 @@ void LU_pivot (double** m_U, double** m_L, t_i_double* v_delta, int n){
 			troca_linhas_LU (m_U, m_L, v_delta, i, iPivo, n);
 
 		for (int j = i+1 ; j < n ; j++){				//j = linha subtraindo a linha do pivo
+
 			double m 	= m_U[j][i]/m_U[i][i];
 			m_U[j][i]	= 0.0;
 
@@ -389,6 +401,21 @@ void LU_pivot (double** m_U, double** m_L, t_i_double* v_delta, int n){
 		m_L[i][i] = 1.0;								//diagonal principal da matriz L
 	}
 	//agora as matrizes L e U estão prontas para serem usadas, com as mudanças salvas no delta
+}
+
+void troca_v_fun_it (double* v_fun_it, t_i_double* v_delta, int n){
+	for (int j = 0 ; j < n ; j++){
+		if (j < v_delta[j].i){					//quando o indice atual for menor do indice do delta
+			for (int k = j+1 ; k < n ; k++){	//procura o lugar que esta com o indice correto e troca
+				if (j == v_delta[k].i){
+					double aux 	= v_fun_it[j];
+					v_fun_it[j]	= v_fun_it[k];	//quando o indice atual é maior, a troca já aconteceu
+					v_fun_it[k]	= aux;
+					break;
+				}
+			}
+		}
+	}
 }
 
 void retrossubs_v_double (double** m_A, double* v_X, double* v_B, int n){
@@ -439,7 +466,7 @@ double* newton_modificado (t_entrada* entrada, int* num_it){
 	double*  v_fun_it;													//guarda os f'(xi)
 	double** m_fun_U;													//guarda os f''(xi), no começo inteira e depois fica apenas a U
 	double** m_fun_L;													//guarda a matriz L
-	alloca_v_mLU (&v_fun_it, &m_fun_U, &m_fun_L, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
+	alloca_v_mLU (&v_fun_it, &m_fun_U, &m_fun_L, n_vars);				//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
 
 	t_i_double* v_delta;												//vetor delta que será calculado
 	double* 	v_X;													//vetor que guarda os valores de x pra iteracao atual
@@ -467,14 +494,20 @@ double* newton_modificado (t_entrada* entrada, int* num_it){
 			reordena_v_i_double 	(v_delta, n_vars);
 			LU_pivot				(m_fun_U, m_fun_L, v_delta, n_vars);		//eliminacao de gauss com pivoteamento na fat LU, com o delta guardando as trocas
 		}
-		retrossubs_v_double   (m_fun_L, v_Y, v_fun_it, n_vars);
-		retrossubs_v_i_double (m_fun_U, v_delta, v_Y, n_vars);
+
+		troca_v_fun_it (v_fun_it, v_delta, n_vars);
+
+		retrossubs_v_double   (m_fun_L, v_Y, v_fun_it, n_vars);					//Ly = b
+		retrossubs_v_i_double (m_fun_U, v_delta, v_Y, n_vars);					//Ux = y
 
 		passa_delta_pra_X (v_delta, v_X, n_vars);
 
 		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
 
-		if (norma(v_X, n_vars) < entrada->epslon)
+		if (isnan(v_res_it[cont_it]) || isinf(v_res_it[cont_it]))					//quando a funcao encontra um infinito ou um not a number, para de tentar
+			break;
+
+		if (norma_i(v_delta, n_vars) < entrada->epslon)
 			break;
 	}
 
@@ -534,8 +567,8 @@ int main(){
 		double*		v_res_nm	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton modificado
 
 		v_res_np	= newton_padrao 	(entrada_atual, &num_it_np);
-		v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
-		imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
+		//v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
+		//imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
 
 		free (v_res_np);
 		free (v_res_nm);
