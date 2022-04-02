@@ -20,9 +20,10 @@ struct t_i_double{			//um tipo double com índice, para o vetor delta
 	double 	n;
 } typedef t_i_double;
 
-int le_entrada(t_entrada* entrada){					//função que lê a entrada
+//função que lê a entrada
+int le_entrada(t_entrada* entrada){
 	if ((scanf("%d\n", &(entrada->n_var))) == EOF)									//lê o número de incógnitas
-		return (-1);		//erro na leitura: o arquivo acabou
+		return (-1);		//o arquivo acabou, pode parar :)
 
 	char* funcao_string = (char *) malloc ((MAX+1)*sizeof(char));					//malloca e lê a string da funcao
 	fgets(funcao_string, MAX, stdin);
@@ -30,12 +31,20 @@ int le_entrada(t_entrada* entrada){					//função que lê a entrada
 	entrada->funcao	= evaluator_create(funcao_string);								//cria a funcao e poe em funcao
 	free (funcao_string);
 
-	if (entrada->funcao == NULL)
+	if (entrada->funcao == NULL){
+		fprintf(stderr, "ERRO: sintaxe de funcao errada!\n");
 		return (-2);		//erro na evaluacao: erro de sintaxe na funcao
+	}
 
 	printf ("%s", funcao_string);
 
-	entrada->valores_ini = (double *) malloc (entrada->n_var * sizeof(double));		//malloca e lê um vetor de valores iniciais para as incógnitas
+	entrada->valores_ini = (double *) calloc (entrada->n_var,sizeof(double));		//alloca e lê um vetor de valores iniciais para as incógnitas
+
+	if (entrada->valores_ini == NULL){
+		fprintf(stderr, "ERRO: não foi possível alocar vetor de valores de incógnitas iniciais\n");
+		return (-3);
+	}
+
 	for (int i = 0; i < entrada->n_var ; i++){
 		scanf("%lf ",&(entrada->valores_ini[i]));
 	}
@@ -48,25 +57,15 @@ int le_entrada(t_entrada* entrada){					//função que lê a entrada
 	return (0);
 }
 
-void imprime_v_m (void** v_deriv, void*** m_deriv, int n_vars){
-	for (int i = 0 ; i < n_vars ; i++){
-		printf ("  f'[%d](x^(i))) = %s\n", i, evaluator_get_string (v_deriv[i]));
-	}
+/*----------------COMECA AS FUNCOES DO NEWTON PADRAO---------------*/
 
-	for (int i = 0 ; i < n_vars ; i++){
-		for (int j = 0 ; j < n_vars ; j++){
-			printf ("  f''[%d][%d](x^(i))) = %s\t", i, j, evaluator_get_string (m_deriv[i][j]));
-		}
-		printf("\n");
-	}
-}
-
-int encontra_pivo (double** matriz, int coluna, int n){	//função que encontra o índice do maior número da
-	int max 	= fabs (matriz[coluna][coluna]);				//coluna para baixo da linha = coluna
+//função que encontra o índice do maior número da coluna para baixo da linha = coluna
+int encontra_pivo (double** matriz, int coluna, int n){
+	int max 	= fabs (matriz[coluna][coluna]);
 	int max_i	= coluna;
 
 	for (int i = coluna+1 ; i < n ; i++){
-		if (fabs (matriz[i][coluna]) > max){					//se o número analisado for maior que o máximo atual
+		if (fabs (matriz[i][coluna]) > max){				//se o número analisado for maior que o máximo atual
 			max 	= fabs (matriz[i][coluna]);				//se torna o max atual, guarda o índice dele também
 			max_i	= i;
 		}
@@ -75,6 +74,7 @@ int encontra_pivo (double** matriz, int coluna, int n){	//função que encontra 
 	return (max_i);
 }
 
+//troca as linhas do sistema linear
 void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2, int n){
 	double aux;
 	for (int j = 0 ; j < n ; j++){
@@ -87,15 +87,16 @@ void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2,
 	v_B[i_1] 	= v_B[i_2];
 	v_B[i_2]	= aux;
 
-	aux 		= v_X[i_1].n;			//troca os valores do vetor_x
+	aux 		= v_X[i_1].n;			//troca os valores do vetor X
 	v_X[i_1].n 	= v_X[i_2].n;
 	v_X[i_2].n	= aux;
 
-	aux 		= v_X[i_1].i;			//troca os indices do vetor_x
+	aux 		= v_X[i_1].i;			//troca os indices do vetor X
 	v_X[i_1].i 	= v_X[i_2].i;
 	v_X[i_2].i	= aux;
 }
 
+//funcao que resolve o sistema linear dado
 void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	//faz eliminação de gauss com pivoteamento parcial
 
@@ -129,6 +130,7 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	//agora, o sistema está resolvido em v_X, com seus respectivos indices, mesmo após as trocas
 }
 
+//o delta pode ser desordenado na hora do pivoteamento, essa funcao o ordena de volta
 void reordena_v_delta (t_i_double* v_delta, int n){
 	//selection_sort onde os elementos são os índices dos elementos de v_delta (v_delta[j].i)
 	int menor, menor_i, aux;
@@ -156,6 +158,7 @@ void reordena_v_delta (t_i_double* v_delta, int n){
 	}
 }
 
+//calcula a norma de um vetor de valores
 double norma (double*  v_valores, int n){
 	double total = 0.0;
 	for (int i = 0 ; i < n ; i++)
@@ -165,23 +168,27 @@ double norma (double*  v_valores, int n){
 	return (total);
 }
 
+//copia o vetor vx2 no vx1
 void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
 	for (int i = 0 ; i < n ; i++)
 		v_X_i1[i] = v_X_i2[i];
 }
 
+//soma o vetor x1 e o delta no vetor x2
 void soma_x1_delta_pro_x2 (t_i_double* v_delta, double* v_X_i1, double* v_X_i2, int n){
 	for (int i = 0 ; i < n ; i++){
 		v_X_i2[i] = v_delta[i].n + v_X_i1[i];
 	}
 }
 
+//imprime um vetor, não usada no final APAGAR ESSA FUNCAO AQUI
 void imprime_vetor (double* vetor, int n){
 	for (int i = 0 ; i < n ; i++)
 		printf("%le	", vetor[i]);
 	printf("\n");
 }
 
+//calcula as funcoes derivadas da funcao "funcao"
 void calcula_derivadas (void* funcao, void** v_deriv, void*** m_deriv, char** v_vars, int n){
 	void* d_funcao;
 	void* dd_funcao;
@@ -200,6 +207,7 @@ void calcula_derivadas (void* funcao, void** v_deriv, void*** m_deriv, char** v_
 	}
 }
 
+//aloca um vetor e uma matriz de funcoes derivadas de tamanho n
 void alloca_v_m_derivs (void*** v_deriv, void**** m_deriv, int n){
 	*v_deriv	= (void **)  calloc(n,sizeof(void *));		//malloca um vetor de funcoes derivadas primeiras
 	*m_deriv	= (void ***) calloc(n,sizeof(void **));		//malloca uma matriz de funcoes derivadas segundas
@@ -207,6 +215,7 @@ void alloca_v_m_derivs (void*** v_deriv, void**** m_deriv, int n){
 		(*m_deriv)[i]	= (void **)  calloc(n,sizeof(void *));
 }
 
+//aloca um vetor e uma matriz de valores de funcoes de tamanho n
 void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_vars){
 	*v_f_iteracao	= (double *)  calloc (n_vars,sizeof(double));	
 	*m_f_iteracao	= (double **) calloc (n_vars,sizeof(double*));	
@@ -214,6 +223,37 @@ void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_
 		(*m_f_iteracao)[i]		= (double *)  calloc (n_vars,sizeof(double));
 }
 
+//aloca os vetores: delta, xi1 e xi2
+void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, double** v_X_i2,int  n_vars){
+	*v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));
+	*v_X_i1		= (double *) 	 calloc (n_vars,sizeof(double));
+	*v_X_i2		= (double *) 	 calloc (n_vars,sizeof(double));
+}
+
+//inicia o vetor xi1 com os valroes iniciais e coloca índice nos valores de delta
+void inicia_Xi1_delta (double* v_X_i1, t_i_double* v_delta, t_entrada* entrada){
+	for (int i = 0 ; i < entrada->n_var ; i++){
+		v_X_i1[i]		= entrada->valores_ini[i];							//carrega x_i1 com os valores iniciais
+		v_delta[i].i	= i;												//coloca índices no vetor delta
+	}
+}
+
+//aloca um vetor de valores de resultados relativos a cada iteração
+void aloca_v_res_it (double** v_res_it, int it){
+	*v_res_it	= (double *) calloc (it,sizeof(double));
+}
+
+//calcula os valores das funcoes derivadas
+void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteracao, double** m_f_iteracao, int n_vars, char** v_vars, double* v_X){
+	for (int i = 0 ; i < n_vars ; i++){												//guarda os valores das funcoes derivadas
+		v_f_iteracao[i]	= -evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X);		//com os X atuais e deixa o valor com sinal trocado para operação
+		for (int j = 0 ; j < n_vars ; j++){
+			m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X);
+		}
+	}
+}
+
+//faz o newton padrao
 double* newton_padrao (t_entrada* entrada, int* num_it){
 	void* 	funcao 	= entrada->funcao;
 	char** 	v_vars;
@@ -222,36 +262,28 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 
 	void**  v_deriv;
 	void*** m_deriv;
-	alloca_v_m_derivs (&v_deriv, &m_deriv, n_vars);					//malloca o vetor e a matriz de derivadas
+	alloca_v_m_derivs (&v_deriv, &m_deriv, n_vars);						//alloca o vetor e a matriz de derivadas
 	calcula_derivadas (funcao, v_deriv, m_deriv, v_vars, n_vars);		//calcula as derivadas no vetor e na matriz
 
-	double*  v_f_iteracao;												//guarda valores atuais do gradiente para os valores de x atuais
-	double** m_f_iteracao;												//guarda valores atuais da hessiana para os valores de x atuais
+	double*  v_f_iteracao;												//guarda os f'(xi)
+	double** m_f_iteracao;												//guarda os f''(xi)
+	alloca_v_m_funcao_it (&v_f_iteracao, &m_f_iteracao, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
 
-	alloca_v_m_funcao_it (&v_f_iteracao, &m_f_iteracao, n_vars);		//malloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
+	t_i_double* v_delta;												//vetor delta que será calculado
+	double* 	v_X_i1;													//vetor que guarda os valores de x pra iteracao atual
+	double* 	v_X_i2;													//vetor que guarda os valores de x pra proxima iteracao
+	alloca_v_delta_X (&v_delta, &v_X_i1, &v_X_i2, n_vars);				//aloca espaco pro vetor delta, x iteracao atual e x prox iteracao
+	inicia_Xi1_delta (v_X_i1, v_delta, entrada);						//inicia os vetores
 
-	t_i_double* v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));//vetor delta que será calculado
-	double* v_X_i1		= (double *) calloc (n_vars,sizeof(double));		//vetor que guarda os valores de x pra iteracao atual
-	double* v_X_i2		= (double *) calloc (n_vars,sizeof(double));		//vetor que guarda os valores de x pra proxima iteracao
+	double* v_res_it;													//guarda os resultados referentes às iteracoes
+	aloca_v_res_it (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
 
-	double* v_res_it	= (double *) calloc (entrada->iteracoes,sizeof(double));
-
-	for (int i = 0 ; i < n_vars ; i++){
-		v_X_i1[i]		= entrada->valores_ini[i];							//carrega x_i1 com os valores iniciais
-		v_delta[i].i	= i;												//coloca índices no vetor delta
-	}
-
-	int 	cont_it	= 0;		//contador de iteracoes
+	int 	cont_it	= 0;												//contador de iteracoes
 
 	while (cont_it < entrada->iteracoes){
 	
 		cont_it++;
-		for (int i = 0 ; i < n_vars ; i++){												//gaurda os valores das funcoes derivadas
-			v_f_iteracao[i]	= -evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);	//com os X atuais e deixa o valor com sinal trocado para operação
-			for (int j = 0 ; j < n_vars ; j++){
-				m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X_i1);
-			}
-		}
+		calcula_valores_deriv (v_deriv, m_deriv, v_f_iteracao, m_f_iteracao, n_vars, v_vars, v_X_i1);
 
 		if (norma(v_f_iteracao, n_vars) < entrada->epslon)
 			break;
@@ -276,6 +308,13 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 	
 }
 
+/*----------------ACABA AS FUNCOES DO NEWTON PADRÃO----------------*/
+
+//funcao que dá free na entrada
+void free_entrada (t_entrada* entrada){
+	free (entrada->valores_ini);
+}
+
 void imprime_resultados (double* v_res, int n, int n_f){
 	printf("Funcao número %d\n", n_f);
 	printf("|Iteracao	|Resultado		|\n");
@@ -285,7 +324,7 @@ void imprime_resultados (double* v_res, int n, int n_f){
 	printf("\n");
 }
 
-void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
+/*void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
 	printf ("%d\n", entrada->n_var);
 	printf ("%s", entrada->funcao);
 	for (int i = 0; i < entrada->n_var ; i++)
@@ -293,25 +332,25 @@ void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
 	printf ("\n");
 	printf ("%le\n", entrada->epslon);
 	printf ("%d\n", entrada->iteracoes);
-}
+}*/
 
 int main(){
-	t_entrada* 	entrada_atual 	= (t_entrada *) malloc (sizeof(t_entrada));
+	t_entrada* 	entrada_atual 	= (t_entrada *) calloc (1,sizeof(t_entrada));
 
-	int cont = 0;
+	int cont_f = 0;
 	int num_it;
 
-	while ((le_entrada(entrada_atual) == 0)/*&&(cont < 5)*/){
-		//imprime_entrada (entrada_atual);
-		double*		v_resultados	= (double *) calloc (entrada_atual->n_var,sizeof(double));
+	while (le_entrada(entrada_atual) == 0){
+		double*		v_resultados_np	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton padrão
 
-		v_resultados	= newton_padrao (entrada_atual, &num_it);
+		v_resultados_np	= newton_padrao (entrada_atual, &num_it);
 		printf("iteracoes: %d\n", num_it);
-		imprime_resultados (v_resultados, num_it, cont);
+		imprime_resultados (v_resultados_np, num_it, cont_f);
 
-		cont++;
-		free (v_resultados);
-		//free_entrada(); dar free na entrada para a próxima
+		free (v_resultados_np);
+		free_entrada(entrada_atual); 	//dar free na entrada para a próxima
+
+		cont_f++;
 	}
 
 	return 1;
