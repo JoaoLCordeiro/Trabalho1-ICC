@@ -3,6 +3,7 @@
 #include <matheval.h>
 #include <assert.h>
 #include <string.h>
+#include <math.h>
 
 #define MAX 1000
 
@@ -101,7 +102,7 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	for (int i = 0 ; i < n ; i++){						//i = linha encontrando o pivo
 		int iPivo	= encontra_pivo(m_A, i);
 
-		if (i == iPivo)
+		if (i != iPivo)
 			troca_linhas (m_A, v_B, v_X, i, iPivo, n);
 
 		for (int j = i+1 ; j < n ; j++){				//j = linha subtraindo a linha do pivo
@@ -120,7 +121,7 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	for (int i = n-1 ; i >=0 ; i--){					//i = linha calculando o valor de v_X
 		v_X[i].n = v_B[i];
 
-		for (int j = j+1 ; j < n ; j++)					//j = coluna passando o valor de v_A[i][j]*v_X[i]
+		for (int j = i+1 ; j < n ; j++)					//j = coluna passando o valor de v_A[i][j]*v_X[i]
 			v_X[i].n -= m_A[i][j] * v_X[j].n;
 		
 		v_X[i].n /= m_A[i][i];
@@ -154,7 +155,55 @@ void reordena_v_delta (t_i_double* v_delta, int n){
 	}
 }
 
-void newton_padrao (t_entrada* entrada){
+double norma (double*  v_valores, int n){
+	double total = 0.0;
+	for (int i = 0 ; i < n ; i++)
+		total += v_valores[i]*v_valores[i];
+	
+	total = sqrt(total);
+	printf("Norma:	%le\n",total);
+	return (total);
+	/*double max, dif_atual;
+
+	if (n_vars == 1){
+		return (fabs(v_valores[0]));
+	}
+	else{
+		max	= v_valores[1] - v_valores[0];
+		max = fabs (max);
+
+		for (int i = 2 ; i < n_vars ; i++){
+			dif_atual	= v_valores[i] - v_valores[i-1];
+			dif_atual	= fabs(dif_atual);
+
+			if (dif_atual > max)
+				max		= dif_atual;
+		}
+	}
+	return (max);*/
+}
+
+void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
+	for (int i = 0 ; i < n ; i++)
+		v_X_i1[i] = v_X_i2[i];
+}
+
+void copia_vdelta_vx2 (t_i_double* v_delta, double* v_X_i2, int n){
+	printf("\n");
+	for (int i = 0 ; i < n ; i++){
+		printf("%le	", v_delta[i].n);
+		v_X_i2[i] = v_delta[i].n;
+	}
+	printf("\n");
+}
+
+void imprime_vetor (double* vetor, int n){
+	for (int i = 0 ; i < n ; i++)
+		printf("%le	", vetor[i]);
+	printf("\n");
+}
+
+double* newton_padrao (t_entrada* entrada){
 	void* 	funcao 	= entrada->funcao;
 	char** 	v_vars;
 	int 	n_vars;
@@ -188,26 +237,71 @@ void newton_padrao (t_entrada* entrada){
 
 	t_i_double* v_delta	= (t_i_double *) malloc (n_vars*sizeof(t_i_double));//vetor delta que será calculado
 	double* v_X_i1		= (double *) malloc (n_vars*sizeof(double));		//vetor que guarda os valores de x pra iteracao atual
-	for (int i = 0 ; i < n_vars ; i++){
-		v_X_i1[i]	= entrada->valores_ini[i];
-		v_delta[i].i	= i;
-	}
 	double* v_X_i2		= (double *) malloc (n_vars*sizeof(double));		//vetor que guarda os valores de x pra proxima iteracao
 
-	while (/*CONDIÇÃO DE PARADA*/ 1){
+	for (int i = 0 ; i < n_vars ; i++){
+		v_X_i1[i]		= entrada->valores_ini[i];
+		v_delta[i].i	= i;
+	}
+
+	int 	cont_it	= 0;		//contador de iteracoes
+	int 	saida	= 1;		//controla qual vetor de valores de X será retornado
+
+	while (cont_it < entrada->iteracoes){
+	
 		for (int i = 0 ; i < n_vars ; i++){												//gaurda os valores das funcoes derivadas
-			v_f_iteracao[i]	= evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);//com os X atuais
+			v_f_iteracao[i]	= evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);	//com os X atuais
 			for (int j = 0 ; j < n_vars ; j++){
 				m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X_i1);
 			}
 		}
 
-		resolve_sistema_linear (m_f_iteracao, v_delta, v_f_iteracao, n_vars);
-		reordena_v_delta (v_delta, n_vars);
+		printf("vetor evaluate:\n");
+		imprime_vetor (v_f_iteracao, n_vars);
+
+		printf("matriz evaluate:\n");
+		for (int i = 0 ; i < n_vars ; i++)
+			imprime_vetor (m_f_iteracao[i], n_vars);
+
+		if (cont_it > 0)
+			copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);
+
+		if (norma(v_f_iteracao, n_vars) < entrada->epslon){
+			saida 	= 1;		//a funcao retornará v_X_i1, ou seja, iteracao i
+			break;
+		}
+
+		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
+		reordena_v_delta 		(v_delta, n_vars);
+		copia_vdelta_vx2		(v_delta, v_X_i2, n_vars);
+
+		printf("Vetor:\n");
+		imprime_vetor			(v_X_i2, n_vars);
+
+		if (norma(v_X_i2, n_vars) < entrada->epslon){
+			saida	= 2;
+			break;
+		}
+
+		cont_it++;
 	}
+
+	if (saida == 1)
+		return (v_X_i1);
+	else
+		return (v_X_i2);
 
 	//imprime_v_m (v_deriv, m_deriv, n_vars); funcao de debug: imprime as funcoes derivadas encontradas
 	//dar free no final nesses vetores/matrizes
+	
+}
+
+void imprime_resultados (double* v_res, int n){
+	printf("|Variável	|Resultado		|\n");
+	for (int i = 0 ; i < n ; i++){
+		printf("|%d		|%f		|\n", i, v_res[i]);
+	}
+	printf("\n");
 }
 
 void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
@@ -221,16 +315,19 @@ void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
 }
 
 int main(){
-	t_entrada* entrada_atual 	= (t_entrada *) malloc (sizeof(t_entrada));
+	t_entrada* 	entrada_atual 	= (t_entrada *) malloc (sizeof(t_entrada));
 
 	int cont = 0;
 
-	while ((le_entrada(entrada_atual) == 0)&&(cont < 10)){
-		
+	while ((le_entrada(entrada_atual) == 0)&&(cont < 3)){
 		//imprime_entrada (entrada_atual);
+		double*		v_resultados	= (double *) malloc (entrada_atual->n_var*sizeof(double));
 
-		newton_padrao (entrada_atual);
+		v_resultados	= newton_padrao (entrada_atual);
+		imprime_resultados (v_resultados, entrada_atual->n_var);
+
 		cont++;
+		free (v_resultados);
 		//free_entrada(); dar free na entrada para a próxima
 	}
 
