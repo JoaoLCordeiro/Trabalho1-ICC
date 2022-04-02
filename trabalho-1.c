@@ -173,16 +173,10 @@ double norma (double*  v_valores, int n){
 	return (total);
 }
 
-//copia o vetor vx2 no vx1
-void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
-	for (int i = 0 ; i < n ; i++)
-		v_X_i1[i] = v_X_i2[i];
-}
-
 //soma o vetor x1 e o delta no vetor x2
-void soma_x1_delta_pro_x2 (t_i_double* v_delta, double* v_X_i1, double* v_X_i2, int n){
+void soma_x1_delta_pro_x1 (t_i_double* v_delta, double* v_X_i1, int n){
 	for (int i = 0 ; i < n ; i++){
-		v_X_i2[i] = v_delta[i].n + v_X_i1[i];
+		v_X_i1[i] += v_delta[i].n;
 	}
 }
 
@@ -234,14 +228,13 @@ void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_
 }
 
 //aloca os vetores: delta, xi1 e xi2
-void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, double** v_X_i2,int  n_vars){
+void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, int  n_vars){
 	*v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));
 	aloca_v_double (v_X_i1, n_vars);
-	aloca_v_double (v_X_i2, n_vars);
 }
 
 //inicia o vetor xi1 com os valroes iniciais e coloca índice nos valores de delta
-void inicia_Xi1_delta (double* v_X_i1, t_i_double* v_delta, t_entrada* entrada){
+void inicia_X_delta (double* v_X_i1, t_i_double* v_delta, t_entrada* entrada){
 	for (int i = 0 ; i < entrada->n_var ; i++){
 		v_X_i1[i]		= entrada->valores_ini[i];							//carrega x_i1 com os valores iniciais
 		v_delta[i].i	= i;												//coloca índices no vetor delta
@@ -272,10 +265,9 @@ void free_v_m_funcao_it (double*  v_f_iteracao, double** m_f_iteracao, int n){
 	free (m_f_iteracao);
 }
 
-void free_v_delta_X (t_i_double* v_delta, double* v_X_i1, double* v_X_i2){
+void free_v_delta_X (t_i_double* v_delta, double* v_X_i1){
 	free (v_delta);
 	free (v_X_i1);
-	free (v_X_i2);
 }
 
 void free_v_res_it (double* v_res_it){
@@ -299,10 +291,9 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 	alloca_v_m_funcao_it (&v_f_iteracao, &m_f_iteracao, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
 
 	t_i_double* v_delta;												//vetor delta que será calculado
-	double* 	v_X_i1;													//vetor que guarda os valores de x pra iteracao atual
-	double* 	v_X_i2;													//vetor que guarda os valores de x pra proxima iteracao
-	alloca_v_delta_X (&v_delta, &v_X_i1, &v_X_i2, n_vars);				//aloca espaco pro vetor delta, x iteracao atual e x prox iteracao
-	inicia_Xi1_delta (v_X_i1, v_delta, entrada);						//inicia os vetores
+	double* 	v_X;													//vetor que guarda os valores de x pra iteracao
+	alloca_v_delta_X (&v_delta, &v_X, n_vars);							//aloca espaco pro vetor delta e x da iteracao
+	inicia_X_delta (v_X, v_delta, entrada);								//inicia os vetores
 
 	double* v_res_it;													//guarda os resultados referentes às iteracoes
 	aloca_v_double (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
@@ -312,26 +303,24 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 	while (cont_it < entrada->iteracoes){
 	
 		cont_it++;
-		calcula_valores_deriv (v_deriv, m_deriv, v_f_iteracao, m_f_iteracao, n_vars, v_vars, v_X_i1);
+		calcula_valores_deriv (v_deriv, m_deriv, v_f_iteracao, m_f_iteracao, n_vars, v_vars, v_X);
 
 		if (norma(v_f_iteracao, n_vars) < entrada->epslon)
 			break;
 
 		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
 		reordena_v_i_double 	(v_delta, n_vars);
-		soma_x1_delta_pro_x2	(v_delta, v_X_i1, v_X_i2, n_vars);
+		soma_x1_delta_pro_x1	(v_delta, v_X, n_vars);				//agora, v_X possui os X da futura iteracao (i+1)
 
-		copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);				//copia i2 pra i1, logo, i1 agr possui o vetor da iteracao futura
-
-		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X_i1);
-		if (norma(v_X_i1, n_vars) < entrada->epslon)
+		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
+		if (norma(v_X, n_vars) < entrada->epslon)
 			break;
 
 	}
 
 	free_v_m_derivs 	(v_deriv, m_deriv, n_vars);
 	free_v_m_funcao_it 	(v_f_iteracao, m_f_iteracao, n_vars);
-	free_v_delta_X 		(v_delta, v_X_i1, v_X_i2);
+	free_v_delta_X 		(v_delta, v_X);
 
 	*num_it = cont_it;
 	return (v_res_it);
@@ -341,7 +330,7 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 
 /*--------------COMECA AS FUNCOES DO NEWTON MODIFICADO-------------*/
 
-void alloca_v_mLU_funcao_it (double** v_fun_it, double*** m_fun_U, double*** m_fun_L, int n_vars){
+void alloca_v_mLU (double** v_fun_it, double*** m_fun_U, double*** m_fun_L, int n_vars){
 	*v_fun_it		= (double *)  calloc (n_vars,sizeof(double));	
 	*m_fun_U		= (double **) calloc (n_vars,sizeof(double*));
 	*m_fun_L		= (double **) calloc (n_vars,sizeof(double*));	
@@ -414,7 +403,29 @@ void retrossubs_v_double (double** m_A, double* v_X, double* v_B, int n){
 	//agora, v_X possui o resultado do sistema linear
 }
 
-void newton_modificado (t_entrada* entrada){
+void passa_delta_pra_X (t_i_double* v_delta, double* v_X, int n){
+	for (int i = 0 ; i < n ; i++){
+		int j = 0;
+		while (v_delta[j].i != i)
+			j++;
+		//aqui, encontramos o elemento de delta com o vetor correspondente
+
+		v_X[i] += v_delta[j].n;
+	}
+	//agora, v_X possui o v_delta com os valores corretos;
+}
+
+void free_v_m_LU (double* v_fun_it, double** m_fun_U, double** m_fun_L, int n){
+	free (v_fun_it);
+	for (int i = 0 ; i < n ; i++){
+		free(m_fun_U[i]);
+		free(m_fun_L[i]);
+	}
+	free(m_fun_L);
+	free(m_fun_U);
+}
+
+double* newton_modificado (t_entrada* entrada, int* num_it){
 	void* 	funcao 	= entrada->funcao;
 	char** 	v_vars;
 	int 	n_vars;
@@ -428,13 +439,12 @@ void newton_modificado (t_entrada* entrada){
 	double*  v_fun_it;													//guarda os f'(xi)
 	double** m_fun_U;													//guarda os f''(xi), no começo inteira e depois fica apenas a U
 	double** m_fun_L;													//guarda a matriz L
-	alloca_v_mLU_funcao_it (&v_fun_it, &m_fun_U, &m_fun_L, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
+	alloca_v_mLU (&v_fun_it, &m_fun_U, &m_fun_L, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
 
 	t_i_double* v_delta;												//vetor delta que será calculado
-	double* 	v_X_i1;													//vetor que guarda os valores de x pra iteracao atual
-	double* 	v_X_i2;													//vetor que guarda os valores de x pra proxima iteracao
-	alloca_v_delta_X (&v_delta, &v_X_i1, &v_X_i2, n_vars);				//aloca espaco pro vetor delta, x iteracao atual e x prox iteracao
-	inicia_Xi1_delta (v_X_i1, v_delta, entrada);						//inicia os vetores
+	double* 	v_X;													//vetor que guarda os valores de x pra iteracao atual
+	alloca_v_delta_X (&v_delta, &v_X, n_vars);							//aloca espaco pro vetor delta, x iteracao atual e x prox iteracao
+	inicia_X_delta (v_X, v_delta, entrada);								//inicia os vetores
 
 	double* v_res_it;													//guarda os resultados referentes às iteracoes
 	aloca_v_double (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
@@ -446,25 +456,35 @@ void newton_modificado (t_entrada* entrada){
 
 	while (cont_it < entrada->iteracoes){
 
-		calcula_val_deriv_v (v_deriv, v_fun_it, n_vars, v_vars, v_X_i1);
+		calcula_val_deriv_v (v_deriv, v_fun_it, n_vars, v_vars, v_X);
 
 		cont_it++;
 		if (norma(v_fun_it, n_vars) < entrada->epslon)
 			break;
 
 		if (((cont_it-1) % hess_steps) == 0){
-			calcula_val_deriv_LU 	(m_deriv, m_fun_U, n_vars, v_vars, v_X_i1);
+			calcula_val_deriv_LU 	(m_deriv, m_fun_U, n_vars, v_vars, v_X);
 			reordena_v_i_double 	(v_delta, n_vars);
 			LU_pivot				(m_fun_U, m_fun_L, v_delta, n_vars);		//eliminacao de gauss com pivoteamento na fat LU, com o delta guardando as trocas
 		}
 		retrossubs_v_double   (m_fun_L, v_Y, v_fun_it, n_vars);
 		retrossubs_v_i_double (m_fun_U, v_delta, v_Y, n_vars);
 
-		if (norma(v_X_i1, n_vars) < entrada->epslon)
+		passa_delta_pra_X (v_delta, v_X, n_vars);
+
+		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
+
+		if (norma(v_X, n_vars) < entrada->epslon)
 			break;
 	}
 
-	//DAR FREE NO FINAL DA FUNCAO HEIN
+	free_v_m_derivs 	(v_deriv, m_deriv, n_vars);
+	free_v_m_LU		 	(v_fun_it, m_fun_U, m_fun_L, n_vars);
+	free_v_delta_X 		(v_delta, v_X);
+	free				(v_Y);
+
+	*num_it = cont_it;
+	return (v_res_it);
 }
 
 /*--------------ACABA AS FUNCOES DO NEWTON MODIFICADO--------------*/
@@ -474,40 +494,51 @@ void free_entrada (t_entrada* entrada){
 	free (entrada->valores_ini);
 }
 
-void imprime_resultados (double* v_res, int n, int n_f){
+int retorna_max (int a, int b){
+	if (a > b)
+		return a;
+	else
+		return b;
+}
+
+void imprime_resultados (double* v_res_np, double* v_res_nm, int num_it_np, int num_it_nm, int n_f){
+	int max = retorna_max (num_it_np, num_it_nm);
+
 	printf("Funcao número %d\n", n_f);
-	printf("|Iteracao	|Resultado		|\n");
-	for (int i = 0 ; i < n ; i++){
-		printf("|%d		|%le		|\n", i, v_res[i]);
+	printf("|Iteracao	||Newton Padrão	||Newton Modificado	|\n");
+	for (int i = 0 ; i < max ; i++){
+		printf("|%d		|",i);
+		if (i < num_it_np)
+			printf("|%le	|",v_res_np[i]);
+		else
+			printf("|		|");
+
+		if (i < num_it_nm)
+			printf("|%le		|",v_res_nm[i]);
+		else
+			printf("|			|");
+
+		printf("\n");
 	}
 	printf("\n");
 }
-
-/*void imprime_entrada (t_entrada *entrada){				//funcao só pra debuggar :)
-	printf ("%d\n", entrada->n_var);
-	printf ("%s", entrada->funcao);
-	for (int i = 0; i < entrada->n_var ; i++)
-		printf ("%lf ", entrada->valores_ini[i]);
-	printf ("\n");
-	printf ("%le\n", entrada->epslon);
-	printf ("%d\n", entrada->iteracoes);
-}*/
 
 int main(){
 	t_entrada* 	entrada_atual 	= (t_entrada *) calloc (1,sizeof(t_entrada));
 
 	int cont_f = 0;
-	int num_it_np;
+	int num_it_np, num_it_nm;
 
 	while (le_entrada(entrada_atual) == 0){
-		double*		v_resultados_np	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton padrão
-		double*		v_resultados_nm	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton modificado
+		double*		v_res_np	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton padrão
+		double*		v_res_nm	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton modificado
 
-		v_resultados_np	= newton_padrao (entrada_atual, &num_it_np);
-		//newton_modificado (entrada_atual);
-		imprime_resultados (v_resultados_np, num_it_np, cont_f);
+		v_res_np	= newton_padrao 	(entrada_atual, &num_it_np);
+		v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
+		imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
 
-		free (v_resultados_np);
+		free (v_res_np);
+		free (v_res_nm);
 		free_entrada(entrada_atual); 	//dar free na entrada para a próxima
 
 		cont_f++;
