@@ -61,11 +61,11 @@ void imprime_v_m (void** v_deriv, void*** m_deriv, int n_vars){
 	}
 }
 
-int encontra_pivo (double** matriz, int coluna){		//função que encontra o índice do maior número da
+int encontra_pivo (double** matriz, int coluna, int n){	//função que encontra o índice do maior número da
 	int max 	= matriz[coluna][coluna];				//coluna para baixo da linha = coluna
 	int max_i	= coluna;
 
-	for (int i = coluna+1 ; i < coluna ; i++){
+	for (int i = coluna+1 ; i < n ; i++){
 		if (matriz[i][coluna] > max){					//se o número analisado for maior que o máximo atual
 			max 	= matriz[i][coluna];				//se torna o max atual, guarda o índice dele também
 			max_i	= i;
@@ -79,7 +79,7 @@ void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2,
 	double aux;
 	for (int j = 0 ; j < n ; j++){
 		aux			= m_A[i_1][j];		//troca as linhas da matriz
-		m_A[i_1][j]	= m_A[i_2][j];
+		m_A[i_1][j]	= m_A[i_2][j];		//ALTERAR PARA TROCAR APENAS O PONTEIRO
 		m_A[i_2][j] = aux;
 	}
 
@@ -100,7 +100,7 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	//faz eliminação de gauss com pivoteamento parcial
 
 	for (int i = 0 ; i < n ; i++){						//i = linha encontrando o pivo
-		int iPivo	= encontra_pivo(m_A, i);
+		int iPivo	= encontra_pivo(m_A, i, n);
 
 		if (i != iPivo)
 			troca_linhas (m_A, v_B, v_X, i, iPivo, n);
@@ -126,7 +126,6 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 		
 		v_X[i].n /= m_A[i][i];
 	}
-
 	//agora, o sistema está resolvido em v_X, com seus respectivos indices, mesmo após as trocas
 }
 
@@ -138,49 +137,53 @@ void reordena_v_delta (t_i_double* v_delta, int n){
 		menor 	= v_delta[j].i;						//dos elementos
 		menor_i	= j;
 
-		for (int k = j ; k < n ; k++){
-			if (v_delta[j].i < menor){
-				menor 	= v_delta[j].i;
+		for (int k = j+1 ; k < n ; k++){
+			if (v_delta[k].i < menor){
+				menor 	= v_delta[k].i;
 				menor_i = k;
 			}
 		}
 
-		aux					= v_delta[j].n;			//troca os números
-		v_delta[j].n		= v_delta[menor_i].n;
-		v_delta[menor_i].n	= aux;
+		if (j != menor_i){
+			aux					= v_delta[j].n;			//troca os números
+			v_delta[j].n		= v_delta[menor_i].n;
+			v_delta[menor_i].n	= aux;
 
-		aux					= v_delta[j].i;			//troca os índices
-		v_delta[j].i		= v_delta[menor_i].i;
-		v_delta[menor_i].i	= aux;
+			aux					= v_delta[j].i;			//troca os índices
+			v_delta[j].i		= v_delta[menor_i].i;
+			v_delta[menor_i].i	= aux;
+		}
 	}
 }
 
 double norma (double*  v_valores, int n){
-	double total = 0.0;
+	/*double total = 0.0;
 	for (int i = 0 ; i < n ; i++)
 		total += v_valores[i]*v_valores[i];
 	
 	total = sqrt(total);
-	printf("Norma:	%le\n",total);
-	return (total);
-	/*double max, dif_atual;
+	printf("Norma:\n%le\n",total);
+	return (total);*/
+	double max, dif_atual;
 
-	if (n_vars == 1){
+	if (n == 1){
+		printf("Norma:\n%le\n",fabs(v_valores[0]));
 		return (fabs(v_valores[0]));
 	}
 	else{
 		max	= v_valores[1] - v_valores[0];
 		max = fabs (max);
 
-		for (int i = 2 ; i < n_vars ; i++){
+		for (int i = 2 ; i < n ; i++){
 			dif_atual	= v_valores[i] - v_valores[i-1];
 			dif_atual	= fabs(dif_atual);
 
 			if (dif_atual > max)
 				max		= dif_atual;
 		}
+		printf("Norma:\n%le\n",max);
 	}
-	return (max);*/
+	return (max);
 }
 
 void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
@@ -188,19 +191,34 @@ void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
 		v_X_i1[i] = v_X_i2[i];
 }
 
-void copia_vdelta_vx2 (t_i_double* v_delta, double* v_X_i2, int n){
-	printf("\n");
+void soma_x1_delta_pro_x2 (t_i_double* v_delta, double* v_X_i1, double* v_X_i2, int n){
 	for (int i = 0 ; i < n ; i++){
-		printf("%le	", v_delta[i].n);
-		v_X_i2[i] = v_delta[i].n;
+		v_X_i2[i] = v_delta[i].n + v_X_i1[i];
 	}
-	printf("\n");
 }
 
 void imprime_vetor (double* vetor, int n){
 	for (int i = 0 ; i < n ; i++)
 		printf("%le	", vetor[i]);
 	printf("\n");
+}
+
+void calcula_derivadas (void* funcao, void** v_deriv, void*** m_deriv, char** v_vars, int n){
+	void* d_funcao;
+	void* dd_funcao;
+
+	for (int i = 0 ; i < n ; i++){										//enche o vetor v_deriv de derivadas
+		d_funcao 	= evaluator_derivative(funcao, v_vars[i]);			//parciais primeiras
+		v_deriv[i] 	= d_funcao;											//gradiente
+	}
+
+	for (int i = 0 ; i < n ; i++){										//enche a matriz m_deriv de derivadas
+		d_funcao = v_deriv[i];											//parciais segundas
+		for (int j = 0 ; j < n ; j++){
+			dd_funcao 		= evaluator_derivative(d_funcao, v_vars[j]);
+			m_deriv[i][j] 	= dd_funcao;								//hessiana
+		}
+	}
 }
 
 double* newton_padrao (t_entrada* entrada){
@@ -214,21 +232,9 @@ double* newton_padrao (t_entrada* entrada){
 	for (int i = 0 ; i < n_vars ; i++)
 		m_deriv[i]		= (void **)  malloc(n_vars*sizeof(void *));
 
-	void* d_funcao;
-	void* dd_funcao;
+	calcula_derivadas (funcao, v_deriv, m_deriv, v_vars, n_vars);
 
-	for (int i = 0 ; i < n_vars ; i++){									//enche o vetor v_deriv de derivadas
-		d_funcao 	= evaluator_derivative(funcao, v_vars[i]);			//parciais primeiras
-		v_deriv[i] 	= d_funcao;											//gradiente
-	}
-
-	for (int i = 0 ; i < n_vars ; i++){									//enche a matriz m_deriv de derivadas
-		d_funcao = v_deriv[i];											//parciais segundas
-		for (int j = 0 ; j < n_vars ; j++){
-			dd_funcao 		= evaluator_derivative(d_funcao, v_vars[j]);
-			m_deriv[i][j] 	= dd_funcao;								//hessiana
-		}
-	}
+	//DAR FREE NO D_FUNCAO E DD_FUNCAO
 
 	double*  v_f_iteracao	= (double *)  malloc (n_vars*sizeof(double));	//guarda valores atuais do gradiente para os valroes de x atuais
 	double** m_f_iteracao	= (double **) malloc (n_vars*sizeof(double*));	//guarda valores atuais da hessiana para os valroes de x atuais
@@ -240,22 +246,23 @@ double* newton_padrao (t_entrada* entrada){
 	double* v_X_i2		= (double *) malloc (n_vars*sizeof(double));		//vetor que guarda os valores de x pra proxima iteracao
 
 	for (int i = 0 ; i < n_vars ; i++){
-		v_X_i1[i]		= entrada->valores_ini[i];
-		v_delta[i].i	= i;
+		v_X_i1[i]		= entrada->valores_ini[i];							//carrega x_i1 com os valores iniciais
+		v_delta[i].i	= i;												//coloca índices no vetor delta
 	}
 
 	int 	cont_it	= 0;		//contador de iteracoes
-	int 	saida	= 1;		//controla qual vetor de valores de X será retornado
 
 	while (cont_it < entrada->iteracoes){
 	
 		for (int i = 0 ; i < n_vars ; i++){												//gaurda os valores das funcoes derivadas
 			v_f_iteracao[i]	= evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);	//com os X atuais
+			v_f_iteracao[i] = -v_f_iteracao[i];											//deixa o valor com sinal trocado para operação
 			for (int j = 0 ; j < n_vars ; j++){
 				m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X_i1);
 			}
 		}
 
+		printf("Iteracao numero %d:\n\n", cont_it);
 		printf("vetor evaluate:\n");
 		imprime_vetor (v_f_iteracao, n_vars);
 
@@ -263,33 +270,27 @@ double* newton_padrao (t_entrada* entrada){
 		for (int i = 0 ; i < n_vars ; i++)
 			imprime_vetor (m_f_iteracao[i], n_vars);
 
-		if (cont_it > 0)
-			copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);
-
-		if (norma(v_f_iteracao, n_vars) < entrada->epslon){
-			saida 	= 1;		//a funcao retornará v_X_i1, ou seja, iteracao i
+		if (norma(v_f_iteracao, n_vars) < entrada->epslon)
 			break;
-		}
 
 		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
 		reordena_v_delta 		(v_delta, n_vars);
-		copia_vdelta_vx2		(v_delta, v_X_i2, n_vars);
+		soma_x1_delta_pro_x2	(v_delta, v_X_i1, v_X_i2, n_vars);
 
-		printf("Vetor:\n");
-		imprime_vetor			(v_X_i2, n_vars);
+		copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);				//copia i2 pra i1, logo, i1 agr possui o vetor da iteracao futura
 
-		if (norma(v_X_i2, n_vars) < entrada->epslon){
-			saida	= 2;
+		printf("Vetor x_i1:\n");
+		imprime_vetor			(v_X_i1, n_vars);
+
+		if (norma(v_X_i1, n_vars) < entrada->epslon)
 			break;
-		}
+
+		printf("\n\n");
 
 		cont_it++;
 	}
 
-	if (saida == 1)
-		return (v_X_i1);
-	else
-		return (v_X_i2);
+	return (v_X_i1);
 
 	//imprime_v_m (v_deriv, m_deriv, n_vars); funcao de debug: imprime as funcoes derivadas encontradas
 	//dar free no final nesses vetores/matrizes
@@ -299,7 +300,7 @@ double* newton_padrao (t_entrada* entrada){
 void imprime_resultados (double* v_res, int n){
 	printf("|Variável	|Resultado		|\n");
 	for (int i = 0 ; i < n ; i++){
-		printf("|%d		|%f		|\n", i, v_res[i]);
+		printf("|%d		|%le		|\n", i, v_res[i]);
 	}
 	printf("\n");
 }
@@ -319,7 +320,7 @@ int main(){
 
 	int cont = 0;
 
-	while ((le_entrada(entrada_atual) == 0)&&(cont < 3)){
+	while ((le_entrada(entrada_atual) == 0)&&(cont < 1)){
 		//imprime_entrada (entrada_atual);
 		double*		v_resultados	= (double *) malloc (entrada_atual->n_var*sizeof(double));
 
