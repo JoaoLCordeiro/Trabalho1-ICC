@@ -168,9 +168,9 @@ void aloca_v_double (double** v_double, int n){
 }
 
 //aloca os vetores: delta, xi1 e xi2
-void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, int  n_vars){
+void alloca_v_delta_X (t_i_double** v_delta, double** v_X, int  n_vars){
 	*v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));
-	aloca_v_double (v_X_i1, n_vars);
+	aloca_v_double (v_X, n_vars);
 }
 
 //inicia o vetor xi1 com os valroes iniciais e coloca índice nos valores de delta
@@ -261,9 +261,15 @@ void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteraca
 
 //dá free no vetor e matriz de funcoes derivadas
 void free_v_m_derivs (void**  v_deriv, void*** m_deriv, int n){
-	free (v_deriv);
-	for (int i = 0 ; i < n ; i++)
+
+	for (int i = 0 ; i < n ; i++){
+		evaluator_destroy(v_deriv[i]);
+		for (int j = 0 ; j < n ; j++)
+			evaluator_destroy(m_deriv[i][j]);
 		free (m_deriv[i]);
+	}
+
+	free (v_deriv);
 	free (m_deriv);
 }
 
@@ -524,6 +530,7 @@ double* newton_modificado (t_entrada* entrada, int* num_it){
 
 //funcao que dá free na entrada
 void free_entrada (t_entrada* entrada){
+	evaluator_destroy(entrada->funcao);
 	free (entrada->valores_ini);
 }
 
@@ -563,11 +570,11 @@ int main(){
 	int num_it_np, num_it_nm;
 
 	while (le_entrada(entrada_atual) == 0){
-		double*		v_res_np	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton padrão
-		double*		v_res_nm	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton modificado
+		double*		v_res_np;					//vetor de resultados do newton padrão
+		double*		v_res_nm;					//vetor de resultados do newton modificado
 
 		v_res_np	= newton_padrao 	(entrada_atual, &num_it_np);
-		//v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
+		v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
 		//imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
 
 		free (v_res_np);
@@ -576,6 +583,7 @@ int main(){
 
 		cont_f++;
 	}
-
+	
+	free (entrada_atual);
 	return 1;
 }
