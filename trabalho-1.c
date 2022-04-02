@@ -62,12 +62,12 @@ void imprime_v_m (void** v_deriv, void*** m_deriv, int n_vars){
 }
 
 int encontra_pivo (double** matriz, int coluna, int n){	//função que encontra o índice do maior número da
-	int max 	= matriz[coluna][coluna];				//coluna para baixo da linha = coluna
+	int max 	= fabs (matriz[coluna][coluna]);				//coluna para baixo da linha = coluna
 	int max_i	= coluna;
 
 	for (int i = coluna+1 ; i < n ; i++){
-		if (matriz[i][coluna] > max){					//se o número analisado for maior que o máximo atual
-			max 	= matriz[i][coluna];				//se torna o max atual, guarda o índice dele também
+		if (fabs (matriz[i][coluna]) > max){					//se o número analisado for maior que o máximo atual
+			max 	= fabs (matriz[i][coluna]);				//se torna o max atual, guarda o índice dele também
 			max_i	= i;
 		}
 	}
@@ -157,33 +157,12 @@ void reordena_v_delta (t_i_double* v_delta, int n){
 }
 
 double norma (double*  v_valores, int n){
-	/*double total = 0.0;
+	double total = 0.0;
 	for (int i = 0 ; i < n ; i++)
 		total += v_valores[i]*v_valores[i];
 	
 	total = sqrt(total);
-	printf("Norma:\n%le\n",total);
-	return (total);*/
-	double max, dif_atual;
-
-	if (n == 1){
-		printf("Norma:\n%le\n",fabs(v_valores[0]));
-		return (fabs(v_valores[0]));
-	}
-	else{
-		max	= v_valores[1] - v_valores[0];
-		max = fabs (max);
-
-		for (int i = 2 ; i < n ; i++){
-			dif_atual	= v_valores[i] - v_valores[i-1];
-			dif_atual	= fabs(dif_atual);
-
-			if (dif_atual > max)
-				max		= dif_atual;
-		}
-		printf("Norma:\n%le\n",max);
-	}
-	return (max);
+	return (total);
 }
 
 void copia_vx2_vx1 (double* v_X_i2, double* v_X_i1, int n){
@@ -221,29 +200,41 @@ void calcula_derivadas (void* funcao, void** v_deriv, void*** m_deriv, char** v_
 	}
 }
 
-double* newton_padrao (t_entrada* entrada){
+void alloca_v_m_derivs (void*** v_deriv, void**** m_deriv, int n){
+	*v_deriv	= (void **)  calloc(n,sizeof(void *));		//malloca um vetor de funcoes derivadas primeiras
+	*m_deriv	= (void ***) calloc(n,sizeof(void **));		//malloca uma matriz de funcoes derivadas segundas
+	for (int i = 0 ; i < n ; i++)
+		(*m_deriv)[i]	= (void **)  calloc(n,sizeof(void *));
+}
+
+void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_vars){
+	*v_f_iteracao	= (double *)  calloc (n_vars,sizeof(double));	
+	*m_f_iteracao	= (double **) calloc (n_vars,sizeof(double*));	
+	for (int i = 0 ; i < n_vars ; i++)
+		(*m_f_iteracao)[i]		= (double *)  calloc (n_vars,sizeof(double));
+}
+
+double* newton_padrao (t_entrada* entrada, int* num_it){
 	void* 	funcao 	= entrada->funcao;
 	char** 	v_vars;
 	int 	n_vars;
 	evaluator_get_variables (funcao, &v_vars, &n_vars);					//pega as informações da funcao atual
 
-	void**  v_deriv		= (void **)  malloc(n_vars*sizeof(void *));		//malloca um vetor de funcoes derivadas primeiras
-	void*** m_deriv		= (void ***) malloc(n_vars*sizeof(void **));	//malloca uma matriz de funcoes derivadas segundas
-	for (int i = 0 ; i < n_vars ; i++)
-		m_deriv[i]		= (void **)  malloc(n_vars*sizeof(void *));
+	void**  v_deriv;
+	void*** m_deriv;
+	alloca_v_m_derivs (&v_deriv, &m_deriv, n_vars);					//malloca o vetor e a matriz de derivadas
+	calcula_derivadas (funcao, v_deriv, m_deriv, v_vars, n_vars);		//calcula as derivadas no vetor e na matriz
 
-	calcula_derivadas (funcao, v_deriv, m_deriv, v_vars, n_vars);
+	double*  v_f_iteracao;												//guarda valores atuais do gradiente para os valores de x atuais
+	double** m_f_iteracao;												//guarda valores atuais da hessiana para os valores de x atuais
 
-	//DAR FREE NO D_FUNCAO E DD_FUNCAO
+	alloca_v_m_funcao_it (&v_f_iteracao, &m_f_iteracao, n_vars);		//malloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
 
-	double*  v_f_iteracao	= (double *)  malloc (n_vars*sizeof(double));	//guarda valores atuais do gradiente para os valroes de x atuais
-	double** m_f_iteracao	= (double **) malloc (n_vars*sizeof(double*));	//guarda valores atuais da hessiana para os valroes de x atuais
-	for (int i = 0 ; i < n_vars ; i++)
-		m_f_iteracao[i]		= (double *)  malloc (n_vars*sizeof(double));
+	t_i_double* v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));//vetor delta que será calculado
+	double* v_X_i1		= (double *) calloc (n_vars,sizeof(double));		//vetor que guarda os valores de x pra iteracao atual
+	double* v_X_i2		= (double *) calloc (n_vars,sizeof(double));		//vetor que guarda os valores de x pra proxima iteracao
 
-	t_i_double* v_delta	= (t_i_double *) malloc (n_vars*sizeof(t_i_double));//vetor delta que será calculado
-	double* v_X_i1		= (double *) malloc (n_vars*sizeof(double));		//vetor que guarda os valores de x pra iteracao atual
-	double* v_X_i2		= (double *) malloc (n_vars*sizeof(double));		//vetor que guarda os valores de x pra proxima iteracao
+	double* v_res_it	= (double *) calloc (entrada->iteracoes,sizeof(double));
 
 	for (int i = 0 ; i < n_vars ; i++){
 		v_X_i1[i]		= entrada->valores_ini[i];							//carrega x_i1 com os valores iniciais
@@ -254,21 +245,13 @@ double* newton_padrao (t_entrada* entrada){
 
 	while (cont_it < entrada->iteracoes){
 	
+		cont_it++;
 		for (int i = 0 ; i < n_vars ; i++){												//gaurda os valores das funcoes derivadas
-			v_f_iteracao[i]	= evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);	//com os X atuais
-			v_f_iteracao[i] = -v_f_iteracao[i];											//deixa o valor com sinal trocado para operação
+			v_f_iteracao[i]	= -evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X_i1);	//com os X atuais e deixa o valor com sinal trocado para operação
 			for (int j = 0 ; j < n_vars ; j++){
 				m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X_i1);
 			}
 		}
-
-		printf("Iteracao numero %d:\n\n", cont_it);
-		printf("vetor evaluate:\n");
-		imprime_vetor (v_f_iteracao, n_vars);
-
-		printf("matriz evaluate:\n");
-		for (int i = 0 ; i < n_vars ; i++)
-			imprime_vetor (m_f_iteracao[i], n_vars);
 
 		if (norma(v_f_iteracao, n_vars) < entrada->epslon)
 			break;
@@ -279,26 +262,23 @@ double* newton_padrao (t_entrada* entrada){
 
 		copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);				//copia i2 pra i1, logo, i1 agr possui o vetor da iteracao futura
 
-		printf("Vetor x_i1:\n");
-		imprime_vetor			(v_X_i1, n_vars);
-
+		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X_i1);
 		if (norma(v_X_i1, n_vars) < entrada->epslon)
 			break;
 
-		printf("\n\n");
-
-		cont_it++;
 	}
 
-	return (v_X_i1);
+	*num_it = cont_it;
+	return (v_res_it);
 
 	//imprime_v_m (v_deriv, m_deriv, n_vars); funcao de debug: imprime as funcoes derivadas encontradas
 	//dar free no final nesses vetores/matrizes
 	
 }
 
-void imprime_resultados (double* v_res, int n){
-	printf("|Variável	|Resultado		|\n");
+void imprime_resultados (double* v_res, int n, int n_f){
+	printf("Funcao número %d\n", n_f);
+	printf("|Iteracao	|Resultado		|\n");
 	for (int i = 0 ; i < n ; i++){
 		printf("|%d		|%le		|\n", i, v_res[i]);
 	}
@@ -319,13 +299,15 @@ int main(){
 	t_entrada* 	entrada_atual 	= (t_entrada *) malloc (sizeof(t_entrada));
 
 	int cont = 0;
+	int num_it;
 
-	while ((le_entrada(entrada_atual) == 0)&&(cont < 1)){
+	while ((le_entrada(entrada_atual) == 0)/*&&(cont < 5)*/){
 		//imprime_entrada (entrada_atual);
-		double*		v_resultados	= (double *) malloc (entrada_atual->n_var*sizeof(double));
+		double*		v_resultados	= (double *) calloc (entrada_atual->n_var,sizeof(double));
 
-		v_resultados	= newton_padrao (entrada_atual);
-		imprime_resultados (v_resultados, entrada_atual->n_var);
+		v_resultados	= newton_padrao (entrada_atual, &num_it);
+		printf("iteracoes: %d\n", num_it);
+		imprime_resultados (v_resultados, num_it, cont);
 
 		cont++;
 		free (v_resultados);
