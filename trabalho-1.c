@@ -76,12 +76,12 @@ int encontra_pivo (double** matriz, int coluna, int n){
 
 //troca as linhas do sistema linear
 void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2, int n){
-	double aux;
-	for (int j = 0 ; j < n ; j++){
-		aux			= m_A[i_1][j];		//troca as linhas da matriz
-		m_A[i_1][j]	= m_A[i_2][j];		//ALTERAR PARA TROCAR APENAS O PONTEIRO
-		m_A[i_2][j] = aux;
-	}
+	double 	aux;
+	double* auxp;
+
+	auxp		= m_A[i_1];				//troca as linhas da matriz
+	m_A[i_1]	= m_A[i_2];
+	m_A[i_2]	= auxp;
 
 	aux 		= v_B[i_1];				//troca os valores do vetor B
 	v_B[i_1] 	= v_B[i_2];
@@ -94,6 +94,18 @@ void troca_linhas (double** m_A, double* v_B, t_i_double* v_X, int i_1, int i_2,
 	aux 		= v_X[i_1].i;			//troca os indices do vetor X
 	v_X[i_1].i 	= v_X[i_2].i;
 	v_X[i_2].i	= aux;
+}
+
+void retrossubs_v_i_double (double** m_A, t_i_double* v_X, double* v_B, int n){
+	for (int i = n-1 ; i >=0 ; i--){					//i = linha calculando o valor de v_X
+		v_X[i].n = v_B[i];
+
+		for (int j = i+1 ; j < n ; j++)					//j = coluna passando o valor de v_A[i][j]*v_X[i]
+			v_X[i].n -= m_A[i][j] * v_X[j].n;
+		
+		v_X[i].n /= m_A[i][i];
+	}
+	//agora, v_X possui o resultado do sistema linear
 }
 
 //funcao que resolve o sistema linear dado
@@ -118,42 +130,35 @@ void resolve_sistema_linear (double** m_A, t_i_double* v_X, double* v_B, int n){
 	}
 
 	//faz retrosubstituicao
+	retrossubs_v_i_double (m_A, v_X, v_B, n);
 
-	for (int i = n-1 ; i >=0 ; i--){					//i = linha calculando o valor de v_X
-		v_X[i].n = v_B[i];
-
-		for (int j = i+1 ; j < n ; j++)					//j = coluna passando o valor de v_A[i][j]*v_X[i]
-			v_X[i].n -= m_A[i][j] * v_X[j].n;
-		
-		v_X[i].n /= m_A[i][i];
-	}
 	//agora, o sistema está resolvido em v_X, com seus respectivos indices, mesmo após as trocas
 }
 
 //o delta pode ser desordenado na hora do pivoteamento, essa funcao o ordena de volta
-void reordena_v_delta (t_i_double* v_delta, int n){
+void reordena_v_i_double (t_i_double* v_i_double, int n){
 	//selection_sort onde os elementos são os índices dos elementos de v_delta (v_delta[j].i)
 	int menor, menor_i, aux;
 
 	for (int j = 0 ; j < n ; j++){					//ordena o v_delta em relação ao índice
-		menor 	= v_delta[j].i;						//dos elementos
+		menor 	= v_i_double[j].i;						//dos elementos
 		menor_i	= j;
 
 		for (int k = j+1 ; k < n ; k++){
-			if (v_delta[k].i < menor){
-				menor 	= v_delta[k].i;
+			if (v_i_double[k].i < menor){
+				menor 	= v_i_double[k].i;
 				menor_i = k;
 			}
 		}
 
 		if (j != menor_i){
-			aux					= v_delta[j].n;			//troca os números
-			v_delta[j].n		= v_delta[menor_i].n;
-			v_delta[menor_i].n	= aux;
+			aux						= v_i_double[j].n;			//troca os números
+			v_i_double[j].n			= v_i_double[menor_i].n;
+			v_i_double[menor_i].n	= aux;
 
-			aux					= v_delta[j].i;			//troca os índices
-			v_delta[j].i		= v_delta[menor_i].i;
-			v_delta[menor_i].i	= aux;
+			aux						= v_i_double[j].i;			//troca os índices
+			v_i_double[j].i			= v_i_double[menor_i].i;
+			v_i_double[menor_i].i	= aux;
 		}
 	}
 }
@@ -215,19 +220,24 @@ void alloca_v_m_derivs (void*** v_deriv, void**** m_deriv, int n){
 		(*m_deriv)[i]	= (void **)  calloc(n,sizeof(void *));
 }
 
+//aloca um vetor de valores de resultados relativos a cada iteração
+void aloca_v_double (double** v_double, int n){
+	*v_double	= (double *) calloc (n,sizeof(double));
+}
+
 //aloca um vetor e uma matriz de valores de funcoes de tamanho n
 void alloca_v_m_funcao_it (double** v_f_iteracao, double*** m_f_iteracao, int n_vars){
-	*v_f_iteracao	= (double *)  calloc (n_vars,sizeof(double));	
+	aloca_v_double (v_f_iteracao, n_vars);	
 	*m_f_iteracao	= (double **) calloc (n_vars,sizeof(double*));	
 	for (int i = 0 ; i < n_vars ; i++)
-		(*m_f_iteracao)[i]		= (double *)  calloc (n_vars,sizeof(double));
+		aloca_v_double (&((*m_f_iteracao)[i]), n_vars);
 }
 
 //aloca os vetores: delta, xi1 e xi2
 void alloca_v_delta_X (t_i_double** v_delta, double** v_X_i1, double** v_X_i2,int  n_vars){
 	*v_delta	= (t_i_double *) calloc (n_vars,sizeof(t_i_double));
-	*v_X_i1		= (double *) 	 calloc (n_vars,sizeof(double));
-	*v_X_i2		= (double *) 	 calloc (n_vars,sizeof(double));
+	aloca_v_double (v_X_i1, n_vars);
+	aloca_v_double (v_X_i2, n_vars);
 }
 
 //inicia o vetor xi1 com os valroes iniciais e coloca índice nos valores de delta
@@ -238,11 +248,6 @@ void inicia_Xi1_delta (double* v_X_i1, t_i_double* v_delta, t_entrada* entrada){
 	}
 }
 
-//aloca um vetor de valores de resultados relativos a cada iteração
-void aloca_v_res_it (double** v_res_it, int it){
-	*v_res_it	= (double *) calloc (it,sizeof(double));
-}
-
 //calcula os valores das funcoes derivadas
 void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteracao, double** m_f_iteracao, int n_vars, char** v_vars, double* v_X){
 	for (int i = 0 ; i < n_vars ; i++){												//guarda os valores das funcoes derivadas
@@ -251,6 +256,30 @@ void calcula_valores_deriv (void** v_deriv, void*** m_deriv, double* v_f_iteraca
 			m_f_iteracao[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X);
 		}
 	}
+}
+
+void free_v_m_derivs (void**  v_deriv, void*** m_deriv, int n){
+	free (v_deriv);
+	for (int i = 0 ; i < n ; i++)
+		free (m_deriv[i]);
+	free (m_deriv);
+}
+
+void free_v_m_funcao_it (double*  v_f_iteracao, double** m_f_iteracao, int n){
+	free (v_f_iteracao);
+	for (int i = 0 ; i < n ; i++)
+		free (m_f_iteracao[i]);
+	free (m_f_iteracao);
+}
+
+void free_v_delta_X (t_i_double* v_delta, double* v_X_i1, double* v_X_i2){
+	free (v_delta);
+	free (v_X_i1);
+	free (v_X_i2);
+}
+
+void free_v_res_it (double* v_res_it){
+	free (v_res_it);
 }
 
 //faz o newton padrao
@@ -276,7 +305,7 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 	inicia_Xi1_delta (v_X_i1, v_delta, entrada);						//inicia os vetores
 
 	double* v_res_it;													//guarda os resultados referentes às iteracoes
-	aloca_v_res_it (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
+	aloca_v_double (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
 
 	int 	cont_it	= 0;												//contador de iteracoes
 
@@ -289,7 +318,7 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 			break;
 
 		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
-		reordena_v_delta 		(v_delta, n_vars);
+		reordena_v_i_double 	(v_delta, n_vars);
 		soma_x1_delta_pro_x2	(v_delta, v_X_i1, v_X_i2, n_vars);
 
 		copia_vx2_vx1(v_X_i2, v_X_i1, n_vars);				//copia i2 pra i1, logo, i1 agr possui o vetor da iteracao futura
@@ -300,15 +329,145 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 
 	}
 
+	free_v_m_derivs 	(v_deriv, m_deriv, n_vars);
+	free_v_m_funcao_it 	(v_f_iteracao, m_f_iteracao, n_vars);
+	free_v_delta_X 		(v_delta, v_X_i1, v_X_i2);
+
 	*num_it = cont_it;
 	return (v_res_it);
-
-	//imprime_v_m (v_deriv, m_deriv, n_vars); funcao de debug: imprime as funcoes derivadas encontradas
-	//dar free no final nesses vetores/matrizes
-	
 }
 
 /*----------------ACABA AS FUNCOES DO NEWTON PADRÃO----------------*/
+
+/*--------------COMECA AS FUNCOES DO NEWTON MODIFICADO-------------*/
+
+void alloca_v_mLU_funcao_it (double** v_fun_it, double*** m_fun_U, double*** m_fun_L, int n_vars){
+	*v_fun_it		= (double *)  calloc (n_vars,sizeof(double));	
+	*m_fun_U		= (double **) calloc (n_vars,sizeof(double*));
+	*m_fun_L		= (double **) calloc (n_vars,sizeof(double*));	
+	for (int i = 0 ; i < n_vars ; i++){
+		(*m_fun_U)[i]		= (double *)  calloc (n_vars,sizeof(double));
+		(*m_fun_L)[i]		= (double *)  calloc (n_vars,sizeof(double));
+	}
+}
+
+void calcula_val_deriv_v (void** v_deriv, double* v_fun_it, int n_vars, char** v_vars, double* v_X){
+	for (int i = 0 ; i < n_vars ; i++){
+		v_fun_it[i]	= -evaluator_evaluate(v_deriv[i], n_vars, v_vars, v_X);
+	}
+}
+
+void calcula_val_deriv_LU (void*** m_deriv, double** m_fun_U, int n_vars, char** v_vars, double* v_X){
+	for (int i = 0 ; i < n_vars ; i++)
+		for (int j = 0 ; j < n_vars ; j++)
+			m_fun_U[i][j] = evaluator_evaluate(m_deriv[i][j], n_vars, v_vars, v_X);
+}
+
+void troca_linhas_LU (double** m_U, double** m_L, t_i_double* v_delta, int i_1, int i_2, int n){
+	double* auxp;
+	int aux;
+
+	auxp 	 = m_U[i_1];
+	m_U[i_1] = m_U[i_2];
+	m_U[i_2] = auxp;
+
+	auxp 	 = m_L[i_1];
+	m_L[i_1] = m_L[i_2];
+	m_L[i_2] = auxp;
+
+	aux 	 		= v_delta[i_1].i;
+	v_delta[i_1].i 	= v_delta[i_2].i;
+	v_delta[i_2].i 	= aux;
+}
+
+void LU_pivot (double** m_U, double** m_L, t_i_double* v_delta, int n){
+	//faz eliminação de gauss com pivoteamento parcial na fatoração LU
+	for (int i = 0 ; i < n ; i++){						//i = linha encontrando o pivo
+		int iPivo	= encontra_pivo(m_U, i, n);
+
+		if (i != iPivo)
+			troca_linhas_LU (m_U, m_L, v_delta, i, iPivo, n);
+
+		for (int j = i+1 ; j < n ; j++){				//j = linha subtraindo a linha do pivo
+			double m 	= m_U[j][i]/m_U[i][i];
+			m_U[j][i]	= 0.0;
+
+			for (int k = i+1 ; k < n ; k++)				//k = coluna fazendo a subtracao por elemento
+				m_U[j][k]	-= m_U[i][k]*m;
+			
+			m_L[j][i] = m;								//elementos abaixo da diagonal principal
+		}
+		m_L[i][i] = 1.0;								//diagonal principal da matriz L
+	}
+	//agora as matrizes L e U estão prontas para serem usadas, com as mudanças salvas no delta
+}
+
+void retrossubs_v_double (double** m_A, double* v_X, double* v_B, int n){
+	for (int i = n-1 ; i >=0 ; i--){					//i = linha calculando o valor de v_X
+		v_X[i] = v_B[i];
+
+		for (int j = i+1 ; j < n ; j++)					//j = coluna passando o valor de v_A[i][j]*v_X[i]
+			v_X[i] -= m_A[i][j] * v_X[j];
+		
+		v_X[i] /= m_A[i][i];
+	}
+	//agora, v_X possui o resultado do sistema linear
+}
+
+void newton_modificado (t_entrada* entrada){
+	void* 	funcao 	= entrada->funcao;
+	char** 	v_vars;
+	int 	n_vars;
+	evaluator_get_variables (funcao, &v_vars, &n_vars);					//pega as informações da funcao atual
+	
+	void**  v_deriv;
+	void*** m_deriv;
+	alloca_v_m_derivs (&v_deriv, &m_deriv, n_vars);						//alloca o vetor e a matriz de derivadas
+	calcula_derivadas (funcao, v_deriv, m_deriv, v_vars, n_vars);		//calcula as derivadas no vetor e na matriz
+
+	double*  v_fun_it;													//guarda os f'(xi)
+	double** m_fun_U;													//guarda os f''(xi), no começo inteira e depois fica apenas a U
+	double** m_fun_L;													//guarda a matriz L
+	alloca_v_mLU_funcao_it (&v_fun_it, &m_fun_U, &m_fun_L, n_vars);		//alloca o vetor e a matriz que guardam o f'(xi) e f''(xi)
+
+	t_i_double* v_delta;												//vetor delta que será calculado
+	double* 	v_X_i1;													//vetor que guarda os valores de x pra iteracao atual
+	double* 	v_X_i2;													//vetor que guarda os valores de x pra proxima iteracao
+	alloca_v_delta_X (&v_delta, &v_X_i1, &v_X_i2, n_vars);				//aloca espaco pro vetor delta, x iteracao atual e x prox iteracao
+	inicia_Xi1_delta (v_X_i1, v_delta, entrada);						//inicia os vetores
+
+	double* v_res_it;													//guarda os resultados referentes às iteracoes
+	aloca_v_double (&v_res_it, entrada->iteracoes);						//aloca o v_res_it
+	double* v_Y;														//guarda o resultado intermediário da fatoração LU
+	aloca_v_double (&v_Y, entrada->n_var);								//aloca o v_Y	
+
+	int cont_it 	= 0;
+	int hess_steps 	= entrada->n_var;
+
+	while (cont_it < entrada->iteracoes){
+
+		calcula_val_deriv_v (v_deriv, v_fun_it, n_vars, v_vars, v_X_i1);
+
+		cont_it++;
+		if (norma(v_fun_it, n_vars) < entrada->epslon)
+			break;
+
+		if (((cont_it-1) % hess_steps) == 0){
+			calcula_val_deriv_LU 	(m_deriv, m_fun_U, n_vars, v_vars, v_X_i1);
+			reordena_v_i_double 	(v_delta, n_vars);
+			LU_pivot				(m_fun_U, m_fun_L, v_delta, n_vars);		//eliminacao de gauss com pivoteamento na fat LU, com o delta guardando as trocas
+		}
+		retrossubs_v_double   (m_fun_L, v_Y, v_fun_it, n_vars);
+		retrossubs_v_i_double (m_fun_U, v_delta, v_Y, n_vars);
+
+		if (norma(v_X_i1, n_vars) < entrada->epslon)
+			break;
+	}
+
+	//DAR FREE NO FINAL DA FUNCAO HEIN
+}
+
+/*--------------ACABA AS FUNCOES DO NEWTON MODIFICADO--------------*/
 
 //funcao que dá free na entrada
 void free_entrada (t_entrada* entrada){
@@ -338,14 +497,15 @@ int main(){
 	t_entrada* 	entrada_atual 	= (t_entrada *) calloc (1,sizeof(t_entrada));
 
 	int cont_f = 0;
-	int num_it;
+	int num_it_np;
 
 	while (le_entrada(entrada_atual) == 0){
 		double*		v_resultados_np	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton padrão
+		double*		v_resultados_nm	= (double *) calloc (entrada_atual->n_var,sizeof(double));	//vetor de resultados do newton modificado
 
-		v_resultados_np	= newton_padrao (entrada_atual, &num_it);
-		printf("iteracoes: %d\n", num_it);
-		imprime_resultados (v_resultados_np, num_it, cont_f);
+		v_resultados_np	= newton_padrao (entrada_atual, &num_it_np);
+		//newton_modificado (entrada_atual);
+		imprime_resultados (v_resultados_np, num_it_np, cont_f);
 
 		free (v_resultados_np);
 		free_entrada(entrada_atual); 	//dar free na entrada para a próxima
