@@ -323,11 +323,11 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 
 		resolve_sistema_linear 	(m_f_iteracao, v_delta, v_f_iteracao, n_vars);
 		reordena_v_i_double 	(v_delta, n_vars);
-		soma_x_delta_pro_x  	(v_delta, v_X, n_vars);				//agora, v_X possui os X da futura iteracao (i+1)
+		soma_x_delta_pro_x  	(v_delta, v_X, n_vars);					//agora, v_X possui os X da futura iteracao (i+1)
 
-		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
+		v_res_it[cont_it-1] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
 		
-		if (isnan(v_res_it[cont_it]) || isinf(v_res_it[cont_it]))	//quando a funcao encontra um infinito ou um not a number, para de tentar
+		if (isnan(v_res_it[cont_it-1]) || isinf(v_res_it[cont_it-1]))	//quando a funcao encontra um infinito ou um not a number, para de tentar
 			break;
 
 		if (norma_i(v_delta, n_vars) < entrada->epslon)
@@ -339,7 +339,7 @@ double* newton_padrao (t_entrada* entrada, int* num_it){
 	free_v_m_funcao_it 	(v_f_iteracao, m_f_iteracao, n_vars);
 	free_v_delta_X 		(v_delta, v_X);
 
-	*num_it = cont_it;
+	*num_it = cont_it-1;
 	return (v_res_it);
 }
 
@@ -508,9 +508,9 @@ double* newton_modificado (t_entrada* entrada, int* num_it){
 
 		passa_delta_pra_X (v_delta, v_X, n_vars);
 
-		v_res_it[cont_it] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
+		v_res_it[cont_it-1] = evaluator_evaluate(funcao, n_vars, v_vars, v_X);
 
-		if (isnan(v_res_it[cont_it]) || isinf(v_res_it[cont_it]))					//quando a funcao encontra um infinito ou um not a number, para de tentar
+		if (isnan(v_res_it[cont_it-1]) || isinf(v_res_it[cont_it-1]))			//quando a funcao encontra um infinito ou um not a number, para de tentar
 			break;
 
 		if (norma_i(v_delta, n_vars) < entrada->epslon)
@@ -522,7 +522,7 @@ double* newton_modificado (t_entrada* entrada, int* num_it){
 	free_v_delta_X 		(v_delta, v_X);
 	free				(v_Y);
 
-	*num_it = cont_it;
+	*num_it = cont_it-1;
 	return (v_res_it);
 }
 
@@ -575,7 +575,7 @@ int main(){
 
 		v_res_np	= newton_padrao 	(entrada_atual, &num_it_np);
 		v_res_nm 	= newton_modificado (entrada_atual, &num_it_nm);
-		//imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
+		imprime_resultados (v_res_np, v_res_nm, num_it_np, num_it_nm, cont_f);
 
 		free (v_res_np);
 		free (v_res_nm);
