@@ -17,7 +17,6 @@
 int main(){
 	t_entrada* 	entrada_atual 	= (t_entrada *) calloc (1,sizeof(t_entrada));
 
-	int 		cont_f = 0;
 	int 		num_it_np, num_it_nm, num_it_ni;
 	t_tempos	tempos_np, tempos_nm, tempos_ni;
 
@@ -36,8 +35,6 @@ int main(){
 		free (v_res_nm);
 		free (v_res_ni);
 		free_entrada(entrada_atual); 			//dar free na entrada para a próxima
-
-		cont_f++;
 	}
 	
 	free (entrada_atual);
